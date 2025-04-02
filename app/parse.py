@@ -25,7 +25,7 @@ class Product:
     additional_info: str
 
 
-def parse_hdd_block_prices(product: BeautifulSoup) -> str:
+def parse_hdd_block_prices(product: Tag) -> str:
     hdd_buttons = product.select(".swatches .btn.swatch")
     return ", ".join(
         btn["value"] for btn in hdd_buttons
@@ -68,20 +68,31 @@ def get_all_products(url: str = None) -> list[Product]:
             urljoin(HOME_URL, "phones"),
             urljoin(HOME_URL, "touch")
         ]
-        url = pages[0]
+        urls_to_scrape = pages
 
-    products = []
-    response = requests.get(url)
-    soup = BeautifulSoup(response.content, "html.parser")
+    else:
+        urls_to_scrape = [url]
 
-    for product_block in soup.select(".product-wrapper.card-body"):
-        products.append(parse_single_quote(product_block))
+    all_products = []
 
-    load_more = soup.select_one(".btn.load-more")
-    if load_more:
-        next_url = urljoin(BASE_URL, load_more["href"])
+    for url in urls_to_scrape:
+        products = []
+        while True:
+            response = requests.get(url)
+            soup = BeautifulSoup(response.content, "html.parser")
 
-    return products
+            for product_block in soup.select(".product-wrapper.card-body"):
+                products.append(parse_single_quote(product_block))
+
+            load_more = soup.select_one(".btn.load-more")
+            if load_more:
+                next_url = urljoin(BASE_URL, load_more["href"])
+                url = next_url
+            else:
+                break
+        all_products.extend(products)
+
+    return all_products
 
 
 def save_products_to_csv(
