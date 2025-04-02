@@ -3,6 +3,7 @@ import time
 import os
 from urllib.parse import urljoin
 
+from bs4 import Tag
 import requests
 from bs4 import BeautifulSoup
 from dataclasses import dataclass
@@ -24,14 +25,15 @@ class Product:
     additional_info: str
 
 
-def parse_hdd_block_prices(product: Product) -> str:
+def parse_hdd_block_prices(product: BeautifulSoup) -> str:
     hdd_buttons = product.select(".swatches .btn.swatch")
     return ", ".join(
         btn["value"] for btn in hdd_buttons
     ) if hdd_buttons else "N/A"
 
 
-def parse_single_quote(product: BeautifulSoup) -> Product:
+
+def parse_single_quote(product: Tag) -> Product:
 
     title = product.select_one(".card-title").text.strip()
     description = product.select_one(".card-text").text.strip()
@@ -58,22 +60,26 @@ def parse_single_quote(product: BeautifulSoup) -> Product:
 
 def get_all_products(url: str = None) -> list[Product]:
     if url is None:
-        url = urljoin(HOME_URL, "computers")
+        pages = [
+            urljoin(HOME_URL, "home"),
+            urljoin(HOME_URL, "computers"),
+            urljoin(HOME_URL, "laptops"),
+            urljoin(HOME_URL, "tablets"),
+            urljoin(HOME_URL, "phones"),
+            urljoin(HOME_URL, "touch")
+        ]
+        url = pages[0]
 
     products = []
-    while True:
-        response = requests.get(url)
-        soup = BeautifulSoup(response.content, "html.parser")
+    response = requests.get(url)
+    soup = BeautifulSoup(response.content, "html.parser")
 
-        for product_block in soup.select(".product-wrapper.card-body"):
-            products.append(parse_single_quote(product_block))
+    for product_block in soup.select(".product-wrapper.card-body"):
+        products.append(parse_single_quote(product_block))
 
-        load_more = soup.select_one(".btn.load-more")
-        if not load_more:
-            break
-
-        url = urljoin(BASE_URL, load_more["href"])
-        time.sleep(1)
+    load_more = soup.select_one(".btn.load-more")
+    if load_more:
+        next_url = urljoin(BASE_URL, load_more["href"])
 
     return products
 
